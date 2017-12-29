@@ -1,23 +1,17 @@
 const passport = require("Passport");
-const strategies = require("./Stratagies");
-const ud = require("../db").ud;
+const strategies = require("./stratagies");
+const User = require('../../src/model/users');
 
 passport.serializeUser(function(user, done) {
-  console.log("serialize");
   done(null, user.id);
 });
 
 passport.deserializeUser(function(id, done) {
-  console.log("deserialize");
-  ud
-    .findById(id)
-    .then(function(user) {
-      done(null, user.dataValues);
-    })
-    .catch(function(err) {
-      done(err, false);
-    });
+  User.findById(id, function(err, user) {
+    done(err, user);
+  });
 });
+
 
 passport.use("local-signup", strategies.LocalSignup);
 

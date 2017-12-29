@@ -1,61 +1,67 @@
 const LocalStrategy = require("passport-local").Strategy;
-const ud = require("../db").ud;
+const User = require('../../src/model/users');
 const bcrypt = require("bcrypt");
 
-const LocalLogin = new LocalStrategy(function(username, password, done) {
-
-  if (username) username = username.toLowerCase(); // Use lower-case e-mails to avoid case-sensitive e-mail matching
+const LocalLogin = new LocalStrategy({
+    usernameField : 'username',
+    passwordField : 'password',
+    passReqToCallback : true
+  },
+  function(req, username, password, done) {
 
   process.nextTick(function () {
-    ud
-      .findOne({where: {username: username}})
-      .then(function (user) {
-        if (user.username === username) {
-          bcrypt.compare(password, user.pass).then(function (res) {
-            if (res) {
-              done(null, user.dataValues);
-            } else {
-              done(null, false, {Message: "wrong pass"});
-            }
-          });
-        } else {
-          done(null, false, {message: "User not found"});
+
+    User.findOne({'username': req.body.username}, function(err, user){
+      if(err) throw err;
+
+      if(!user){
+        console.log('bhak salla');
+        return done(null, false, {message: 'No user found'});
+      }
+
+      bcrypt.compare(password, user.password, function(err, isMatch){
+        if(err) throw err;
+
+        if(isMatch) return done(null, user);
+        else {
+          console.log('nooo');
+          return done(null, false, {message: 'Wrong password'});
         }
-      })
-      .catch(function () {
-        done(null, false, {message: "User not found"});
       });
+    });
   });
 });
 
-const LocalSignup = new LocalStrategy(function(email, password, done) {
-  if (email) email = email.toLowerCase();
-  console.log(password);
-  console.log(email);
-  console.log(done);
+
+const LocalSignup = new LocalStrategy({
+    usernameField: 'username',
+    passwordField: 'password',
+    passReqToCallback: true
+  },
+  function(req, username, password, done) {
+
   process.nextTick(function() {
-    ud
-      .findOne({ where: { username: email } })
-      .then(function(user) {
-        if (user) {
-          return done(null, false, { message: "User Exist" });
-        } else {
-          bcrypt.hash(password, 10).then(function(hash) {
-            ud
-              .create({
-                username: email,
-                pass: hash
-              })
-              .then(function(user) {
-                return done(null, user.dataValues);
-              })
-              .catch(function(err) {
-                throw err;
-              });
+    User.findOne({'username': username}, function(err, user){
+      if(err) throw err;
+
+      if(user) {
+        return done(null, false, { message: "User Exist" });
+      } else {
+
+        bcrypt.hash(password, 10).then(function(hash) {
+
+          var newUser = new User({
+            username: req.body.username,
+            password: hash
           });
-        }
-      })
-      .catch(err => done(err));
+
+          newUser.save(function (err) {
+            if(err) throw err
+            return done(null, newUser);
+          });
+        });
+      }
+    });
   });
 });
 
